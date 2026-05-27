@@ -1,6 +1,6 @@
 //! Inverted index for fast text search with TF-IDF scoring.
 
-use std::collections::{HashMap, HashSet, BTreeMap};
+use std::collections::{HashMap, HashSet};
 
 /// A document in the index.
 #[derive(Debug, Clone)]
@@ -13,7 +13,11 @@ pub struct Document {
 impl Document {
     pub fn new(id: u64, text: &str) -> Self {
         let tokens = tokenize(text);
-        Self { id, text: text.to_string(), tokens }
+        Self {
+            id,
+            text: text.to_string(),
+            tokens,
+        }
     }
 }
 
@@ -38,12 +42,19 @@ pub struct InvertedIndex {
 }
 
 impl Default for InvertedIndex {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl InvertedIndex {
     pub fn new() -> Self {
-        Self { postings: HashMap::new(), docs: HashMap::new(), doc_lengths: HashMap::new(), total_docs: 0 }
+        Self {
+            postings: HashMap::new(),
+            docs: HashMap::new(),
+            doc_lengths: HashMap::new(),
+            total_docs: 0,
+        }
     }
 
     /// Add a document to the index.
@@ -59,7 +70,10 @@ impl InvertedIndex {
         }
 
         for (term, count) in &term_counts {
-            self.postings.entry(term.clone()).or_default().push((id, *count));
+            self.postings
+                .entry(term.clone())
+                .or_default()
+                .push((id, *count));
         }
 
         self.docs.insert(id, doc);
@@ -67,7 +81,9 @@ impl InvertedIndex {
 
     /// Remove a document by ID.
     pub fn remove(&mut self, doc_id: u64) -> bool {
-        if self.docs.remove(&doc_id).is_none() { return false; }
+        if self.docs.remove(&doc_id).is_none() {
+            return false;
+        }
         self.doc_lengths.remove(&doc_id);
         self.total_docs = self.total_docs.saturating_sub(1);
 
@@ -79,9 +95,13 @@ impl InvertedIndex {
     }
 
     /// Number of indexed documents.
-    pub fn len(&self) -> usize { self.total_docs }
+    pub fn len(&self) -> usize {
+        self.total_docs
+    }
 
-    pub fn is_empty(&self) -> bool { self.total_docs == 0 }
+    pub fn is_empty(&self) -> bool {
+        self.total_docs == 0
+    }
 
     /// Get all terms in the index.
     pub fn terms(&self) -> Vec<&str> {
@@ -91,16 +111,26 @@ impl InvertedIndex {
     /// IDF (inverse document frequency) for a term.
     pub fn idf(&self, term: &str) -> f64 {
         let df = self.postings.get(term).map(|p| p.len()).unwrap_or(0) as f64;
-        if df == 0.0 { return 0.0; }
+        if df == 0.0 {
+            return 0.0;
+        }
         (1.0 + self.total_docs as f64 / (1.0 + df)).ln() + 1.0
     }
 
     /// TF-IDF score for a (term, doc) pair.
     pub fn tfidf(&self, term: &str, doc_id: u64) -> f64 {
-        let tf = self.postings.get(term)
-            .and_then(|p| p.iter().find(|(id, _)| *id == doc_id).map(|(_, c)| *c as f64))
+        let tf = self
+            .postings
+            .get(term)
+            .and_then(|p| {
+                p.iter()
+                    .find(|(id, _)| *id == doc_id)
+                    .map(|(_, c)| *c as f64)
+            })
             .unwrap_or(0.0);
-        if tf == 0.0 { return 0.0; }
+        if tf == 0.0 {
+            return 0.0;
+        }
         let idf = self.idf(term);
         tf * idf
     }
@@ -108,7 +138,9 @@ impl InvertedIndex {
     /// Search for documents matching all query terms, ranked by cosine similarity.
     pub fn search(&self, query: &str, limit: usize) -> Vec<(u64, f64)> {
         let query_tokens = tokenize(query);
-        if query_tokens.is_empty() { return vec![]; }
+        if query_tokens.is_empty() {
+            return vec![];
+        }
 
         // Find candidate docs (containing at least one query term)
         let mut candidates: HashSet<u64> = HashSet::new();
@@ -121,11 +153,15 @@ impl InvertedIndex {
         }
 
         // Score each candidate
-        let query_vec: HashMap<&str, f64> = query_tokens.iter().map(|t| (t.as_str(), 1.0)).collect();
-        let mut scored: Vec<(u64, f64)> = candidates.iter().map(|&doc_id| {
-            let score = self.cosine_similarity(&query_vec, doc_id);
-            (doc_id, score)
-        }).collect();
+        let query_vec: HashMap<&str, f64> =
+            query_tokens.iter().map(|t| (t.as_str(), 1.0)).collect();
+        let mut scored: Vec<(u64, f64)> = candidates
+            .iter()
+            .map(|&doc_id| {
+                let score = self.cosine_similarity(&query_vec, doc_id);
+                (doc_id, score)
+            })
+            .collect();
 
         scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
         scored.truncate(limit);
@@ -153,12 +189,17 @@ impl InvertedIndex {
         }
 
         let denom = q_norm.sqrt() * d_norm.sqrt();
-        if denom == 0.0 { 0.0 } else { dot / denom }
+        if denom == 0.0 {
+            0.0
+        } else {
+            dot / denom
+        }
     }
 
     /// Prefix search: find all terms starting with the given prefix.
     pub fn prefix_search(&self, prefix: &str) -> Vec<&str> {
-        self.postings.keys()
+        self.postings
+            .keys()
             .filter(|t| t.starts_with(prefix))
             .map(|s| s.as_str())
             .collect()
@@ -172,10 +213,15 @@ impl InvertedIndex {
     /// Fuzzy term frequency: count how many query tokens appear in a doc.
     pub fn fuzzy_match(&self, query: &str, doc_id: u64) -> usize {
         let query_tokens = tokenize(query);
-        let doc_terms: HashSet<&str> = self.docs.get(&doc_id)
+        let doc_terms: HashSet<&str> = self
+            .docs
+            .get(&doc_id)
             .map(|d| d.tokens.iter().map(|s| s.as_str()).collect())
             .unwrap_or_default();
-        query_tokens.iter().filter(|t| doc_terms.contains(t.as_str())).count()
+        query_tokens
+            .iter()
+            .filter(|t| doc_terms.contains(t.as_str()))
+            .count()
     }
 }
 
