@@ -1,0 +1,9 @@
+[package]
+name = "flux-index"
+version = "0.1.0"
+edition = "2021"
+description = "Inverted index for fast text search — TF-IDF scoring, posting lists, prefix queries"
+license = "MIT"
+keywords = ["search", "index", "tfidf", "text", "inverted-index"]
+
+[dependencies]
