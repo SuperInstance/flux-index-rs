@@ -27,3 +27,5 @@ let results = idx.search("quick fox", 10);
 ## License
 
 MIT
+
+Part of the [SuperInstance OpenConstruct](https://github.com/SuperInstance/OpenConstruct) ecosystem.
